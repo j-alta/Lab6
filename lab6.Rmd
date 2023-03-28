@@ -10,7 +10,67 @@ library(tidyverse)
 library(haven)
 library(sandwich)
 library(rdrobust)
+library(rpart)
 df <- read_dta("mobility.dta")
 view(df)
+```
+
+***Question 1***
+When conducting prediction applications, we split our data into "test" and "training" datasets to predict what an outcome will be for a new observation as accurately as possible. We start with existing data where all outcomes have already been observed, and fit a statistical model using these past data (or "training data"). We then use this fitted model to predict an outcome variable of interest, for out of sample data (or "test data"). 
+
+```{r q2}
+
+#Question 2a: Creating Test and Training subsamples. 
+
+#Set the seed
+HUID <- 21519588 
+set.seed(HUID)
+
+#Assign a random number to each observation
+df$random_number <- runif(length(df$cz))
+view(df)
+
+#2b: Generating training flag variable to identify and assign training and test observations 
+df$train_flag <- ifelse(df$random_number>= 0.5, 1, 0) 
+view(df)
+
+#Report number of observations in training and test samples
+sum(df$train_flag)
+sum(1-df$train_flag)
+
+```
+
+The training sample, or control group, contains 375 observations. The test sample, or treatment group, contains 366 observations. 
+
+```{r q3}
+
+#Question 3: Creating training and test data frames
+test <- df |> 
+        filter(train_flag == 0)
+view(test)
+
+train <- df |> 
+         filter(train_flag == 1)
+view(train)
+
+```
+
+
+```{r}
+
+#question 4
+
+#regression example - do it for 4 variables
+
+#emp2000
+#popdesnity
+#share_asian2010
+#rent_twobed2015
+
+
+#predictor: mobility$kfr_pooled_pooled_25
+
+mobilityreg <- lm(kfr_pooled_pooled_25~ emp2000 + popdensity + share_asian2010 + rent_twobed2015)
+
 ```
 
