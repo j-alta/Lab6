@@ -1,0 +1,16 @@
+---
+title: "Lab6"
+output: pdf_document
+date: "2023-03-28"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(haven)
+library(sandwich)
+library(rdrobust)
+df <- read_dta("mobility.dta")
+view(df)
+```
+
