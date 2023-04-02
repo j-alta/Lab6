@@ -16,7 +16,7 @@ view(df)
 ```
 
 ***Question 1***
-When conducting prediction applications, we split our data into "test" and "training" datasets to predict what an outcome will be for a new observation as accurately as possible. We start with existing data where all outcomes have already been observed, and fit a statistical model using these past data (or "training data"). We then use this fitted model to predict an outcome variable of interest, for out of sample data (or "test data"). 
+When conducting prediction applications, we split our data into "test" and "training" datasets to predict what an outcome will be for a new observation as accurately as possible. We start with existing data where all outcomes have already been observed, and split it into training and test data. We fit a statistical model using the assigned training data. We then use this fitted model to predict an outcome variable of interest for "test" data to evaluate this model when making out of sample predictions. 
 
 ```{r q2}
 
@@ -56,21 +56,140 @@ view(train)
 ```
 
 
-```{r}
+```{r q4}
 
-#question 4
+#Question 4a: Creating multivariate regression for absolute mobility at p = 25 
 
-#regression example - do it for 4 variables
+#Four predictor variables chosen:
+#share_hisp2010 #Hispanic share of population in 2010
+#emp2000 #employment rate in 2000
+#frac_coll_plus2000 #fraction of college degree attainment or more in 2000
+#job_growth_1990_2010 #job growth rate between 1990-2010 
 
-#emp2000
-#popdesnity
-#share_asian2010
-#rent_twobed2015
+mobilityreg <- lm(kfr_pooled_pooled_p25 ~ share_hisp2010 + emp2000 + frac_coll_plus2000 + job_growth_1990_2010, data = train)
+summary(mobilityreg)
 
+#4b: Using training model to predict absolute mobility for Milwaukee, WI
+#Display data for Milwaukee, WI
+summary(subset(df, cz == 24100))
 
-#predictor: mobility$kfr_pooled_pooled_25
+#Generate absolute mobility and training models variables for Milwaukee
+df_milwaukee <- df |> 
+                filter(cz == 24100) |> 
+                select(kfr_pooled_pooled_p25, share_hisp2010, emp2000, frac_coll_plus2000, job_growth_1990_2010)
+summary(df_milwaukee)
 
-mobilityreg <- lm(kfr_pooled_pooled_25~ emp2000 + popdensity + share_asian2010 + rent_twobed2015)
+#Use training model to predict absolute mobility
+21.19064 + (4.17192*0.09059) +(43.13663*0.6491) - (17.29014 * 0.2515) -(0.03223 * 5.551)
+
+45.04118-38.89
+
 
 ```
 
+The actual absolute mobility for Milwaukee is 38.89.  The training model generates an predicted absolute mobility of 45.04118. The prediction error is 6.15118. 
+
+
+```{r q4c-f}
+
+#4C: Generate predictions for all observations in the training data
+y_train_predictions_ols <- predict(mobilityreg, newdata=train)
+
+#4D: Generate predictions for all observations in the test data
+y_test_predictions_ols <- predict(mobilityreg, newdata=test)
+
+#Generate squared prediction errors
+OLS_performance_testset <- (test$kfr_pooled_pooled_p25 - y_test_predictions_ols)^2
+OLS_performance_trainset <- (train$kfr_pooled_pooled_p25 - y_train_predictions_ols)^2
+
+#Report the root mean squared prediction error
+rmspe_test_ols <- sqrt(mean(OLS_performance_testset, na.rm=TRUE))
+rmspe_train_ols <- sqrt(mean(OLS_performance_trainset, na.rm=TRUE))
+
+rmspe_test_ols
+rmspe_train_ols
+
+
+
+```
+
+The prediction error in the test data is 5.65, while the prediction error in the training data is 5.467. The test data error is higher. 
+
+```{r q5}
+
+#Q5A: Estimate decision tree
+
+mobilitytree <- rpart(kfr_pooled_pooled_p25 ~ share_hisp2010 + emp2000 + frac_coll_plus2000 + job_growth_1990_2010, 
+                      data=train, 
+                      maxdepth = 3, 
+                      cp=0) 
+
+
+#Q5B: Visualize decision tree
+#Visualize the fitted decision tree
+plot(mobilitytree, margin = 0.2) # plot tree
+text(mobilitytree, cex = 0.5) # add labels to tree
+```
+
+Using the decision tree, we can predict the rate of absolute mobility for Milwaukee. Milwaukee has a 2000 employment rate higher than 0.56, so we move to the right branch of the tree. The 2010 share of Hispanic population is greater than 0.02, so we move to the left-side sub-branch. Finally, 2000 employment is greater than 0.62, so the decision tree predicts that absolute mobility in Milwaukee is 44.48. The prediction error for Milwaukee is 5.59. 
+
+
+```{r q5c-f}
+
+#Q5C-F: Calculating RMSPE in decision tree training vs. test data
+
+#Calculate predictions for all rows in test and training samples
+y_test_predictions_tree <- predict(mobilitytree, newdata=test)
+y_train_predictions_tree <- predict(mobilitytree, newdata=train)
+
+#Generate squared prediction errors
+tree_performance_testset <- (test$kfr_pooled_pooled_p25 - y_test_predictions_tree)^2
+tree_performance_trainset <- (train$kfr_pooled_pooled_p25 - y_train_predictions_tree)^2
+
+#Report the root mean squared prediction error
+rmspe_test_tree <- sqrt(mean(tree_performance_testset, na.rm=TRUE))
+rmspe_train_tree <- sqrt(mean(tree_performance_trainset, na.rm=TRUE))
+
+#Report the root mean squared prediction error
+rmspe_test_tree
+rmspe_train_tree
+
+```
+
+Again, prediction error in the test data is higher, at 5.967, compared to prediction error in the training data, which is 4.80.
+
+```{r q6}
+
+#Q6: Illustrating overfitting problem in decision trees
+
+big_tree <-rpart(kfr_pooled_pooled_p25 ~ share_hisp2010 + emp2000 + frac_coll_plus2000 + job_growth_1990_2010, 
+             data=train, 
+             maxdepth = 30, 
+             cp=0,  
+             minsplit = 1, 
+             minbucket = 1)
+
+#Visualize the fitted decision tree
+plot(big_tree, margin = 0.2) # plot tree
+text(big_tree, cex = 0.5) # add labels to tree
+
+#Calculate predictions for all rows in test and training samples
+y_test_predictions_big_tree <- predict(big_tree, newdata=test)
+y_train_predictions_big_tree <- predict(big_tree, newdata=train)
+
+#Generate squared prediction errors
+big_tree_performance_testset <- (test$kfr_pooled_pooled_p25 - y_test_predictions_big_tree)^2
+big_tree_performance_trainset <- (train$kfr_pooled_pooled_p25 - y_train_predictions_big_tree)^2
+
+#Report the root mean squared prediction error
+rmspe_test_big_tree <- sqrt(mean(big_tree_performance_testset, na.rm=TRUE))
+rmspe_train_big_tree <- sqrt(mean(big_tree_performance_trainset, na.rm=TRUE))
+
+#Report the root mean squared prediction error
+rmspe_test_big_tree
+rmspe_train_big_tree
+
+```
+
+***Question 7***
+On the training sample, the large decision tree performs best, with RMSPE of 0, which makes sense, because we coded the tree to be so big that each observation is it's own leaf. On the test sample, however, the big tree performs the worst. The best performing test sample is the linear regression. 
